@@ -21,28 +21,19 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
     let name = &input.ident;
     let data = &input.data;
     let bname = format_ident!("{}Builder", name);
-    let named: Punctuated<Field, Token![,]> = Punctuated::new();
-    let named = match named_fields(data) {
-        Some(f) => f,
-        None => &named,
-    };
 
     let mut fields: Vec<TokenStream> = Vec::new();
-    let mut args: Vec<TokenStream> = Vec::new();
+    let mut bargs: Vec<TokenStream> = Vec::new();
     let mut setters: Vec<TokenStream> = Vec::new();
-    let mut fn_args: Vec<TokenStream> = Vec::new();
+    let mut args: Vec<TokenStream> = Vec::new();
 
-    for f in named {
+    for f in named_fields(data).unwrap_or(&Punctuated::new()) {
         let name = &f.ident;
         let ty = &f.ty;
 
-        if let Some(info) = match parse_attr(f) {
-            Some(Ok(info)) => Some(info),
-            Some(Err(err)) => return Err(err),
-            _ => None,
-        } {
-            fields.push(quote! { #name: #ty, });
-            args.push(quote! { #name: Vec::new(), });
+        if let Some(info) = parse_attr(f) {
+            let info = info?;
+            fields.push(quote! { #name: #ty });
             let attr_arg = format_ident!("{}", &info.arg.value());
             let inner_ty = &info.inner_ty;
             setters.push(quote! {
@@ -51,20 +42,20 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
                     self
                 }
             });
-            fn_args.push(quote! { #name: self.#name.clone(), });
+            args.push(quote! { #name: self.#name.clone() });
+            bargs.push(quote! { #name: Vec::new() });
         } else if let Some(ty) = inner_for(ty, "Option") {
-            fields.push(quote! { #name: std::option::Option<#ty>, });
-            args.push(quote! { #name: std::option::Option::None, });
+            fields.push(quote! { #name: std::option::Option<#ty> });
             setters.push(quote! {
                 pub fn #name(&mut self, #name: #ty) -> &mut Self {
                     self.#name = std::option::Option::Some(#name);
                     self
                 }
             });
-            fn_args.push(quote! { #name: self.#name.clone(), });
+            args.push(quote! { #name: self.#name.clone() });
+            bargs.push(quote! { #name: std::option::Option::None });
         } else {
-            fields.push(quote! { #name: std::option::Option<#ty>, });
-            args.push(quote! { #name: std::option::Option::None, });
+            fields.push(quote! { #name: std::option::Option<#ty> });
             setters.push(quote! {
                 pub fn #name(&mut self, #name: #ty) -> &mut Self {
                     self.#name = std::option::Option::Some(#name);
@@ -72,15 +63,14 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
                 }
             });
             let err = format!("{} is not set", name.clone().unwrap());
-            fn_args.push(quote! {
-                #name: self.#name.clone().ok_or(#err)?,
-            });
+            args.push(quote! { #name: self.#name.clone().ok_or(#err)? });
+            bargs.push(quote! { #name: std::option::Option::None });
         }
     }
 
     Ok(quote! {
         pub struct #bname {
-            #(#fields)*
+            #(#fields),*
         }
         impl #bname {
             #(#setters)*
@@ -88,14 +78,14 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
                 &mut self
             ) -> std::result::Result<Command, std::boxed::Box<dyn std::error::Error>> {
                 Ok(#name {
-                    #(#fn_args)*
+                    #(#args),*
                 })
             }
         }
         impl #name {
             pub fn builder() -> #bname {
                 #bname {
-                    #(#args)*
+                    #(#bargs),*
                 }
             }
         }
