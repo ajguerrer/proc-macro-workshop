@@ -5,11 +5,6 @@ use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::*;
 
-struct AttrInfo {
-    arg: LitStr,
-    inner_ty: Type,
-}
-
 #[proc_macro_derive(Builder, attributes(builder))]
 pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -32,10 +27,9 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
         let ty = &f.ty;
 
         if let Some(info) = parse_attr(f) {
-            let info = info?;
+            let (arg, inner_ty) = info?;
             fields.push(quote! { #name: #ty });
-            let attr_arg = format_ident!("{}", &info.arg.value());
-            let inner_ty = &info.inner_ty;
+            let attr_arg = format_ident!("{}", &arg.value());
             setters.push(quote! {
                 pub fn #attr_arg(&mut self, #attr_arg: #inner_ty) -> &mut Self {
                     self.#name.push(#attr_arg);
@@ -128,7 +122,7 @@ fn inner_for<'a>(ty: &'a Type, wrap: &str) -> Option<&'a Type> {
     }
 }
 
-fn parse_attr(field: &Field) -> Option<Result<AttrInfo>> {
+fn parse_attr(field: &Field) -> Option<Result<(LitStr, Type)>> {
     let attr = field.attrs.first()?;
     let meta = attr.parse_meta().ok()?;
 
@@ -170,10 +164,7 @@ fn parse_attr(field: &Field) -> Option<Result<AttrInfo>> {
     };
 
     match inner_for(&field.ty, "Vec") {
-        Some(ty) => Some(Ok(AttrInfo {
-            arg: litstr.clone(),
-            inner_ty: ty.clone(),
-        })),
+        Some(ty) => Some(Ok((litstr.clone(), ty.clone()))),
         None => Some(Err(Error::new_spanned(&field.ty, "expected Vec"))),
     }
 }
