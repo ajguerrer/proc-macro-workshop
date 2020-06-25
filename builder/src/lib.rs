@@ -2,7 +2,6 @@ extern crate proc_macro;
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::punctuated::Punctuated;
 use syn::*;
 
 #[proc_macro_derive(Builder, attributes(builder))]
@@ -22,7 +21,7 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
     let mut setters: Vec<TokenStream> = Vec::new();
     let mut args: Vec<TokenStream> = Vec::new();
 
-    for f in named_fields(data).unwrap_or(&Punctuated::new()) {
+    for f in named_fields(data) {
         let name = &f.ident;
         let ty = &f.ty;
 
@@ -86,13 +85,13 @@ fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
     })
 }
 
-fn named_fields(data: &Data) -> Option<&Punctuated<Field, Token![,]>> {
+fn named_fields(data: &Data) -> Vec<&Field> {
     match data {
         Data::Struct(DataStruct {
             fields: Fields::Named(FieldsNamed { ref named, .. }),
             ..
-        }) => Some(named),
-        _ => None,
+        }) => named.iter().collect(),
+        _ => Vec::new(),
     }
 }
 
