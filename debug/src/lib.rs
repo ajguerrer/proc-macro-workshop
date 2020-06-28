@@ -80,75 +80,65 @@ fn named_fields(data: &Data) -> Vec<&Field> {
 
 fn debug_attr(attrs: &[Attribute]) -> Option<LitStr> {
     for attr in attrs {
-        let meta = match attr.parse_meta() {
-            Ok(meta) => meta,
-            Err(_) => continue,
-        };
-        let (path, lit) = match meta {
-            Meta::NameValue(MetaNameValue {
-                ref path, ref lit, ..
-            }) => (path, lit),
-            _ => continue,
-        };
-        let segment = match path.segments.first() {
-            Some(segment) => segment,
-            None => continue,
-        };
-        if segment.ident != "debug" {
-            continue;
-        }
-        match lit {
-            Lit::Str(litstr) => return Some(litstr.clone()),
-            _ => continue,
+        if let Some(litstr) = parse_debug_attr(attr) {
+            return Some(litstr);
         }
     }
     None
 }
 
+fn parse_debug_attr(attr: &Attribute) -> Option<LitStr> {
+    let meta = attr.parse_meta().ok()?;
+    match meta {
+        Meta::NameValue(ref name_value) => litstr_from_name_value(name_value, "debug"),
+        _ => None,
+    }
+}
+
 fn bound_predicate(attrs: &[Attribute]) -> Option<WherePredicate> {
     for attr in attrs {
-        let meta = match attr.parse_meta() {
-            Ok(meta) => meta,
-            Err(_) => continue,
-        };
-        let (path, nested) = match meta {
-            Meta::List(MetaList {
-                ref path,
-                ref nested,
-                ..
-            }) => (path, nested),
-            _ => continue,
-        };
-        let segment = match path.segments.first() {
-            Some(segment) => segment,
-            None => continue,
-        };
-        if segment.ident != "debug" {
-            continue;
-        }
-        let nested = match nested.first() {
-            Some(nested) => nested,
-            None => continue,
-        };
-        let (path, lit) = match nested {
-            NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                ref path, ref lit, ..
-            })) => (path, lit),
-            _ => continue,
-        };
-        let segment = match path.segments.first() {
-            Some(segment) => segment,
-            None => continue,
-        };
-        if segment.ident != "bound" {
-            continue;
-        }
-        match lit {
-            Lit::Str(litstr) => return Some(parse_str::<WherePredicate>(&litstr.value()).ok()?),
-            _ => continue,
+        if let Some(litstr) = parse_bound_attr(attr) {
+            return Some(parse_str::<WherePredicate>(&litstr.value()).ok()?);
         }
     }
     None
+}
+
+fn parse_bound_attr(attr: &Attribute) -> Option<LitStr> {
+    let meta = attr.parse_meta().ok()?;
+    match meta {
+        Meta::List(MetaList {
+            ref path,
+            ref nested,
+            ..
+        }) => {
+            if path.segments.first()?.ident != "debug" {
+                return None;
+            }
+            for meta in nested {
+                if let Some(litstr) = match meta {
+                    NestedMeta::Meta(Meta::NameValue(ref name_value)) => {
+                        litstr_from_name_value(name_value, "bound")
+                    }
+                    _ => None,
+                } {
+                    return Some(litstr);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+fn litstr_from_name_value(name_value: &MetaNameValue, name: &str) -> Option<LitStr> {
+    if name_value.path.segments.first()?.ident != name {
+        return None;
+    }
+    match &name_value.lit {
+        Lit::Str(litstr) => Some(litstr.clone()),
+        _ => None,
+    }
 }
 
 fn generic_predicate(field: &Field, struct_generics: Vec<&Ident>) -> Option<WherePredicate> {
