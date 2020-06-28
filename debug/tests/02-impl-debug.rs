@@ -30,6 +30,5 @@ fn main() {
     };
 
     let debug = format!("{:?}", f);
-
     assert!(debug.starts_with(r#"Field { name: "F","#));
 }
