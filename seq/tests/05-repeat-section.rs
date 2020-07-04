@@ -34,14 +34,24 @@ seq!(N in 0..16 {
     #[derive(Copy, Clone, PartialEq, Debug)]
     enum Interrupt {
         #(
-            Irq#N,
+            IrqA#N,
+        )*
+        TestIrq,
+        #(
+            IrqB#N,
         )*
     }
 });
 
 fn main() {
-    let interrupt = Interrupt::Irq8;
+    let interrupt_a8 = Interrupt::IrqA8;
+    let test_interrupt = Interrupt::TestIrq;
+    let interrupt_b8 = Interrupt::IrqB8;
 
-    assert_eq!(interrupt as u8, 8);
-    assert_eq!(interrupt, Interrupt::Irq8);
+    assert_eq!(interrupt_a8 as u8, 8);
+    assert_eq!(interrupt_a8, Interrupt::IrqA8);
+    assert_eq!(test_interrupt as u8, 16);
+    assert_eq!(test_interrupt, Interrupt::TestIrq);
+    assert_eq!(interrupt_b8 as u8, 25);
+    assert_eq!(interrupt_b8, Interrupt::IrqB8);
 }
