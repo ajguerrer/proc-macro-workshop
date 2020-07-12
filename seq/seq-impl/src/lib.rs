@@ -1,8 +1,10 @@
 extern crate proc_macro;
 
 use parse::{Parse, ParseStream};
+use proc_macro::TokenStream;
 use proc_macro2::{
-    token_stream::IntoIter, Delimiter, Group, Ident, Literal, TokenStream, TokenTree,
+    token_stream::IntoIter, Delimiter, Group, Ident, Literal, TokenStream as TokenStream2,
+    TokenTree,
 };
 use proc_macro_hack::proc_macro_hack;
 use syn::*;
@@ -12,7 +14,7 @@ struct SeqMacroInput {
     from: u16,
     to: u16,
     inclusive: bool,
-    tokens: TokenStream,
+    tokens: TokenStream2,
 }
 
 impl Parse for SeqMacroInput {
@@ -44,19 +46,19 @@ impl Parse for SeqMacroInput {
 }
 
 #[proc_macro]
-pub fn seq(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn seq(input: TokenStream) -> TokenStream {
     let seq = parse_macro_input!(input as SeqMacroInput);
     let output = seq.expand_seq();
-    proc_macro::TokenStream::from(output)
+    TokenStream::from(output)
 }
 
 #[proc_macro_hack]
-pub fn eseq(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn eseq(input: TokenStream) -> TokenStream {
     seq(input)
 }
 
 impl SeqMacroInput {
-    fn expand_seq(&self) -> TokenStream {
+    fn expand_seq(&self) -> TokenStream2 {
         match self.expand_repeat(self.tokens.clone()) {
             (true, out) => out,
             _ => self
@@ -66,8 +68,8 @@ impl SeqMacroInput {
         }
     }
 
-    fn expand_pass(&self, stream: TokenStream, i: u16) -> TokenStream {
-        let mut ts = TokenStream::new();
+    fn expand_pass(&self, stream: TokenStream2, i: u16) -> TokenStream2 {
+        let mut ts = TokenStream2::new();
         let mut iter = stream.into_iter();
         while let Some(tt) = iter.next() {
             let tree = match tt {
@@ -86,8 +88,8 @@ impl SeqMacroInput {
         ts
     }
 
-    fn expand_repeat(&self, stream: TokenStream) -> (bool, TokenStream) {
-        let mut ts = TokenStream::new();
+    fn expand_repeat(&self, stream: TokenStream2) -> (bool, TokenStream2) {
+        let mut ts = TokenStream2::new();
         let mut iter = stream.into_iter();
         let mut found = false;
         while let Some(tt) = iter.next() {
@@ -110,9 +112,9 @@ impl SeqMacroInput {
                 (TokenTree::Group(group), _, _) => {
                     let (f, out) = self.expand_repeat(group.stream());
                     found = f;
-                    TokenStream::from(TokenTree::Group(Group::new(group.delimiter(), out)))
+                    TokenStream2::from(TokenTree::Group(Group::new(group.delimiter(), out)))
                 }
-                (tt, _, _) => TokenStream::from(tt),
+                (tt, _, _) => TokenStream2::from(tt),
             };
             ts.extend(s);
         }

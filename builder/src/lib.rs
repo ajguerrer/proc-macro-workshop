@@ -1,25 +1,26 @@
 extern crate proc_macro;
 
-use proc_macro2::TokenStream;
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::*;
 
 #[proc_macro_derive(Builder, attributes(builder))]
-pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let output = builder_output(&input).unwrap_or_else(|err| err.to_compile_error());
-    proc_macro::TokenStream::from(output)
+    TokenStream::from(output)
 }
 
-fn builder_output(input: &DeriveInput) -> Result<TokenStream> {
+fn builder_output(input: &DeriveInput) -> Result<TokenStream2> {
     let name = &input.ident;
     let data = &input.data;
     let bname = format_ident!("{}Builder", name);
 
-    let mut fields: Vec<TokenStream> = Vec::new();
-    let mut bargs: Vec<TokenStream> = Vec::new();
-    let mut setters: Vec<TokenStream> = Vec::new();
-    let mut args: Vec<TokenStream> = Vec::new();
+    let mut fields: Vec<TokenStream2> = Vec::new();
+    let mut bargs: Vec<TokenStream2> = Vec::new();
+    let mut setters: Vec<TokenStream2> = Vec::new();
+    let mut args: Vec<TokenStream2> = Vec::new();
 
     for f in named_fields(data) {
         let name = &f.ident;

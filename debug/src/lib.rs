@@ -1,17 +1,18 @@
 extern crate proc_macro;
 
-use proc_macro2::TokenStream;
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::*;
 
 #[proc_macro_derive(CustomDebug, attributes(debug))]
-pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let output = custom_debug_output(&input).unwrap_or_else(|err| err.to_compile_error());
-    proc_macro::TokenStream::from(output)
+    TokenStream::from(output)
 }
 
-fn custom_debug_output(input: &DeriveInput) -> Result<TokenStream> {
+fn custom_debug_output(input: &DeriveInput) -> Result<TokenStream2> {
     let name = &input.ident;
     let name_string = format!("{}", name);
     let fields = named_fields(&input.data);
